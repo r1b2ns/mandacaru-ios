@@ -30,12 +30,35 @@ targets:
     dependencies:
       - package: Floresta
         product: Floresta
+      - target: MandacaruiOSWidget
+    info:
+      path: MandacaruiOS/Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+          UISceneConfigurations: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UILaunchStoryboardName: LaunchScreen
+        UIStatusBarStyle: UIStatusBarStyleDefault
+        UIBackgroundModes:
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - zeroSixteen.br.com.MandacaruiOS.sync
+        NSSupportsLiveActivities: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: zeroSixteen.br.com.MandacaruiOS
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         TARGETED_DEVICE_FAMILY: "1,2"
-        GENERATE_INFOPLIST_FILE: YES
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "1.0"
         ENABLE_APP_SANDBOX: YES
@@ -49,9 +72,27 @@ targets:
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+
+  MandacaruiOSWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MandacaruiOSWidget
+      - path: MandacaruiOS/Shared
+    info:
+      path: MandacaruiOSWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: zeroSixteen.br.com.MandacaruiOS.widget
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0"
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+        SKIP_INSTALL: YES
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

@@ -6,6 +6,7 @@ use std::time::Duration;
 use bitcoin::Network;
 use floresta::chain::{BlockchainError, BlockchainInterface, ChainState};
 use floresta::wire::node::UtreexoNode;
+use floresta_chain::pruned_utreexo::chainparams::ChainParams;
 use floresta_chain::{AssumeValidArg, FlatChainStore, FlatChainStoreConfig};
 use floresta_mempool::Mempool;
 use floresta_wire::address_man::{AddressMan, SUPPORTED_NETWORKS};
@@ -55,11 +56,48 @@ pub struct FlorestaSyncStatus {
     pub progress: f64,
 }
 
+/// Runtime tuning knobs forwarded to `UtreexoNodeConfig`. Pass NULL to
+/// `floresta_node_new` to use the mobile-friendly defaults below.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct FlorestaConfig {
+    /// Enable assumeutreexo with the network's hardcoded snapshot — fast sync
+    /// at the cost of trusting the snapshot baked into the fork.
+    pub assume_utreexo: bool,
+    /// When assumeutreexo is on, also download and verify historical blocks in
+    /// the background to upgrade from "trusted" to "fully validated".
+    pub backfill: bool,
+    /// Use PoW fraud proofs to skip most of the chain validation. Off by
+    /// default — exclusive with `assume_utreexo` in practice.
+    pub pow_fraud_proofs: bool,
+    /// Skip DNS seeds. Useful for tests; in production we want them on.
+    pub disable_dns_seeds: bool,
+    /// Allow falling back to P2P v1 if the v2 handshake fails.
+    pub allow_v1_fallback: bool,
+    /// Peer misbehaviour threshold before disconnecting. Floresta default is 100.
+    pub max_banscore: u32,
+}
+
+impl FlorestaConfig {
+    /// Recommended defaults for mobile: snapshot-based fast sync with backfill.
+    fn defaults() -> Self {
+        FlorestaConfig {
+            assume_utreexo: true,
+            backfill: true,
+            pow_fraud_proofs: false,
+            disable_dns_seeds: false,
+            allow_v1_fallback: true,
+            max_banscore: 100,
+        }
+    }
+}
+
 pub struct FlorestaNode {
     runtime: tokio::runtime::Runtime,
     chain: Arc<ChainState<FlatChainStore>>,
     network: Network,
     datadir: String,
+    config: FlorestaConfig,
     kill_signal: Arc<RwLock<bool>>,
     peer_count: Arc<AtomicU32>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
@@ -95,6 +133,7 @@ pub extern "C" fn floresta_ffi_string_free(ptr: *mut c_char) {
 pub extern "C" fn floresta_node_new(
     data_dir: *const c_char,
     network: u32,
+    config: *const FlorestaConfig,
 ) -> *mut FlorestaNode {
     install_tracing();
     if data_dir.is_null() {
@@ -108,7 +147,16 @@ pub extern "C" fn floresta_node_new(
     let datadir = unsafe { CStr::from_ptr(data_dir) }
         .to_string_lossy()
         .into_owned();
-    tracing::info!(target: "floresta_ffi", "[Sync] node_new network={:?} datadir={}", net, datadir);
+    let cfg = if config.is_null() {
+        FlorestaConfig::defaults()
+    } else {
+        unsafe { std::ptr::read(config) }
+    };
+    tracing::info!(
+        target: "floresta_ffi",
+        "[Sync] node_new network={:?} datadir={} assume_utreexo={} backfill={} pow_fraud_proofs={}",
+        net, datadir, cfg.assume_utreexo, cfg.backfill, cfg.pow_fraud_proofs
+    );
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -160,6 +208,7 @@ pub extern "C" fn floresta_node_new(
         chain,
         network: net,
         datadir,
+        config: cfg,
         kill_signal,
         peer_count: Arc::new(AtomicU32::new(0)),
         join_handle: None,
@@ -182,20 +231,39 @@ pub extern "C" fn floresta_node_start(node: *mut FlorestaNode) -> bool {
     let network = node_ref.network;
     let datadir = node_ref.datadir.clone();
     let peer_count = node_ref.peer_count.clone();
+    let cfg = node_ref.config;
 
     // Channel so the run-loop spawn can hand the NodeInterface handle back to us,
     // so the peer-polling task can be spawned with it.
     let (handle_tx, handle_rx) = tokio::sync::oneshot::channel();
 
     let join_handle = node_ref.runtime.spawn(async move {
-        let mut config = UtreexoNodeConfig::default();
-        config.network = network;
-        config.datadir = datadir;
-        config.disable_dns_seeds = false;
+        let assume_utreexo = if cfg.assume_utreexo {
+            Some(ChainParams::get_assume_utreexo(network))
+        } else {
+            None
+        };
+        let config = UtreexoNodeConfig {
+            network,
+            datadir: datadir.clone(),
+            disable_dns_seeds: cfg.disable_dns_seeds,
+            pow_fraud_proofs: cfg.pow_fraud_proofs,
+            assume_utreexo: assume_utreexo.clone(),
+            backfill: cfg.backfill,
+            allow_v1_fallback: cfg.allow_v1_fallback,
+            max_banscore: cfg.max_banscore,
+            ..UtreexoNodeConfig::default()
+        };
         tracing::info!(
             target: "floresta_ffi",
-            "[Sync] starting UtreexoNode network={:?} datadir={} dns_seeds_enabled=true",
-            network, config.datadir
+            "[Sync] starting UtreexoNode network={:?} datadir={} assume_utreexo={} backfill={}",
+            network,
+            config.datadir,
+            assume_utreexo
+                .as_ref()
+                .map(|v| format!("Some(height={} roots={})", v.height, v.roots.len()))
+                .unwrap_or_else(|| "None".to_string()),
+            cfg.backfill
         );
 
         let mempool = Arc::new(Mutex::new(Mempool::new(MEMPOOL_SIZE)));
