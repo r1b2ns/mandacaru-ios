@@ -34,6 +34,7 @@ targets:
     info:
       path: MandacaruiOS/Info.plist
       properties:
+        CFBundleDisplayName: Mandacaru
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
           UISceneConfigurations: {}
@@ -82,6 +83,7 @@ targets:
     info:
       path: MandacaruiOSWidget/Info.plist
       properties:
+        CFBundleDisplayName: Mandacaru Widget
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

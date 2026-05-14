@@ -6,21 +6,25 @@ struct SyncLiveActivity: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SyncActivityAttributes.self) { context in
-            LockScreenView(
-                state: context.state,
-                network: context.attributes.networkName,
-                isStale: context.isStale
-            )
-            .padding()
-            .activityBackgroundTint(Color.black.opacity(0.05))
-            .activitySystemActionForegroundColor(.primary)
+            FreshnessGate(context: context) { stale in
+                LockScreenView(
+                    state: context.state,
+                    network: context.attributes.networkName,
+                    isStale: stale
+                )
+                .padding()
+                .activityBackgroundTint(Color.black.opacity(0.05))
+                .activitySystemActionForegroundColor(.primary)
+            }
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HeaderIcon(state: context.state)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    TrailingBadge(state: context.state, isStale: context.isStale)
+                    FreshnessGate(context: context) { stale in
+                        TrailingBadge(state: context.state, isStale: stale)
+                    }
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(stateLabel(for: context.state, network: context.attributes.networkName))
@@ -28,12 +32,16 @@ struct SyncLiveActivity: Widget {
                         .foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    BodyView(state: context.state, isStale: context.isStale, dense: true)
+                    FreshnessGate(context: context) { stale in
+                        BodyView(state: context.state, isStale: stale, dense: true)
+                    }
                 }
             } compactLeading: {
                 HeaderIcon(state: context.state)
             } compactTrailing: {
-                CompactTrailing(state: context.state, isStale: context.isStale)
+                FreshnessGate(context: context) { stale in
+                    CompactTrailing(state: context.state, isStale: stale)
+                }
             } minimal: {
                 HeaderIcon(state: context.state)
             }
@@ -43,6 +51,25 @@ struct SyncLiveActivity: Widget {
     private func stateLabel(for state: SyncActivityAttributes.ContentState, network: String) -> String {
         if !state.inIBD { return "Mandacaru • Node synced" }
         return "Mandacaru • Syncing \(network)"
+    }
+}
+
+/// Forces a re-render at `state.staleAt` so the widget switches to the "open
+/// the app" UI the moment the freshness countdown hits zero, even if the
+/// system has not yet flipped `context.isStale` (it sometimes lags). The
+/// schedule needs a present-or-past entry first — an explicit schedule built
+/// with only a future date causes SwiftUI to use that future date as the
+/// initial render's `timeline.date`, which would make the gate consider the
+/// content stale from the very first frame.
+private struct FreshnessGate<Content: View>: View {
+    let context: ActivityViewContext<SyncActivityAttributes>
+    @ViewBuilder var content: (Bool) -> Content
+
+    var body: some View {
+        TimelineView(.explicit([Date(), context.state.staleAt])) { timeline in
+            let stale = context.isStale || timeline.date >= context.state.staleAt
+            content(stale)
+        }
     }
 }
 
@@ -84,8 +111,8 @@ private struct HeaderIcon: View {
     }
 }
 
-/// Top-right indicator: percent while syncing, warning icon when stale, nothing
-/// once synced (the header already says it).
+/// Top-right indicator: countdown + percent while syncing, warning icon when
+/// stale, nothing once synced (the header already says it).
 private struct TrailingBadge: View {
     let state: SyncActivityAttributes.ContentState
     let isStale: Bool
@@ -97,14 +124,18 @@ private struct TrailingBadge: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
         } else {
-            Text("\(Int(state.progress * 100))%")
-                .font(.callout.monospacedDigit())
+            HStack(spacing: 6) {
+                FreshnessCountdown(staleAt: state.staleAt)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text("\(Int(state.progress * 100))%")
+                    .font(.callout.monospacedDigit())
+            }
         }
     }
 }
 
-/// Same trailing affordance, but reduced to a single glyph for the compact
-/// Dynamic Island slot.
+/// Single-glyph version for the Dynamic Island compact slot.
 private struct CompactTrailing: View {
     let state: SyncActivityAttributes.ContentState
     let isStale: Bool
@@ -142,6 +173,18 @@ private struct BodyView: View {
                 StatsRow(state: state)
             }
         }
+    }
+}
+
+/// 60s countdown rendered by `Text(timerInterval:)` so the digits animate in
+/// place without us forcing widget re-renders every second. `pauseTime`
+/// freezes the display at 00:00 instead of letting it run negative.
+private struct FreshnessCountdown: View {
+    let staleAt: Date
+
+    var body: some View {
+        let start = staleAt.addingTimeInterval(-SyncActivityAttributes.freshnessWindow)
+        Text(timerInterval: start...staleAt, pauseTime: staleAt, countsDown: true)
     }
 }
 
