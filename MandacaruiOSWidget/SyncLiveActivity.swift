@@ -8,7 +8,8 @@ struct SyncLiveActivity: Widget {
         ActivityConfiguration(for: SyncActivityAttributes.self) { context in
             LockScreenView(
                 state: context.state,
-                network: context.attributes.networkName
+                network: context.attributes.networkName,
+                isStale: context.isStale
             )
             .padding()
             .activityBackgroundTint(Color.black.opacity(0.05))
@@ -16,11 +17,10 @@ struct SyncLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Image(systemName: "bonjour").foregroundStyle(.tint)
+                    HeaderIcon(state: context.state)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("\(Int(context.state.progress * 100))%")
-                        .font(.callout.monospacedDigit())
+                    TrailingBadge(state: context.state, isStale: context.isStale)
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(stateLabel(for: context.state, network: context.attributes.networkName))
@@ -28,43 +28,154 @@ struct SyncLiveActivity: Widget {
                         .foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 6) {
-                        ProgressView(value: context.state.progress).tint(Color.accentColor)
-                        StatsRow(state: context.state)
-                    }
+                    BodyView(state: context.state, isStale: context.isStale, dense: true)
                 }
             } compactLeading: {
-                Image(systemName: "bonjour").foregroundStyle(.tint)
+                HeaderIcon(state: context.state)
             } compactTrailing: {
-                Text("\(Int(context.state.progress * 100))%")
-                    .font(.caption2.monospacedDigit())
+                CompactTrailing(state: context.state, isStale: context.isStale)
             } minimal: {
-                Image(systemName: "bonjour").foregroundStyle(.tint)
+                HeaderIcon(state: context.state)
             }
         }
     }
 
     private func stateLabel(for state: SyncActivityAttributes.ContentState, network: String) -> String {
-        state.inIBD ? "Mandaracu • Syncing \(network)" : "Synced \(network)"
+        if !state.inIBD { return "Mandacaru • Node synced" }
+        return "Mandacaru • Syncing \(network)"
     }
 }
+
+// MARK: - Lock screen
 
 private struct LockScreenView: View {
     let state: SyncActivityAttributes.ContentState
     let network: String
+    let isStale: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Image(systemName: "bonjour").foregroundStyle(.tint)
-                Text(state.inIBD ? "Syncing \(network)" : "Synced \(network)")
+                HeaderIcon(state: state)
+                Text(state.inIBD ? "Syncing \(network)" : "Node synced")
                     .font(.headline)
                 Spacer()
-                Text("\(Int(state.progress * 100))%")
-                    .font(.callout.monospacedDigit())
+                TrailingBadge(state: state, isStale: isStale)
             }
-            ProgressView(value: state.progress).tint(Color.accentColor)
-            StatsRow(state: state)
+            BodyView(state: state, isStale: isStale, dense: false)
+        }
+    }
+}
+
+// MARK: - Shared pieces
+
+/// Bonjour icon during IBD, success badge once synced.
+private struct HeaderIcon: View {
+    let state: SyncActivityAttributes.ContentState
+
+    var body: some View {
+        if state.inIBD {
+            Image(systemName: "bonjour")
+                .foregroundStyle(Color.accentColor)
+        } else {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(.green)
+        }
+    }
+}
+
+/// Top-right indicator: percent while syncing, warning icon when stale, nothing
+/// once synced (the header already says it).
+private struct TrailingBadge: View {
+    let state: SyncActivityAttributes.ContentState
+    let isStale: Bool
+
+    var body: some View {
+        if !state.inIBD {
+            EmptyView()
+        } else if isStale {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        } else {
+            Text("\(Int(state.progress * 100))%")
+                .font(.callout.monospacedDigit())
+        }
+    }
+}
+
+/// Same trailing affordance, but reduced to a single glyph for the compact
+/// Dynamic Island slot.
+private struct CompactTrailing: View {
+    let state: SyncActivityAttributes.ContentState
+    let isStale: Bool
+
+    var body: some View {
+        if !state.inIBD {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(.green)
+        } else if isStale {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        } else {
+            Text("\(Int(state.progress * 100))%")
+                .font(.caption2.monospacedDigit())
+        }
+    }
+}
+
+/// Bottom section: synced → success banner; stale → warning to open the app;
+/// otherwise → progress bar + stats row.
+private struct BodyView: View {
+    let state: SyncActivityAttributes.ContentState
+    let isStale: Bool
+    let dense: Bool
+
+    var body: some View {
+        if !state.inIBD {
+            SyncedBanner(state: state, dense: dense)
+        } else if isStale {
+            StaleBanner()
+        } else {
+            VStack(spacing: dense ? 6 : 8) {
+                ProgressView(value: state.progress)
+                    .tint(Color.accentColor)
+                StatsRow(state: state)
+            }
+        }
+    }
+}
+
+private struct StaleBanner: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text("Open the app to keep syncing")
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct SyncedBanner: View {
+    let state: SyncActivityAttributes.ContentState
+    let dense: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(.green)
+                .font(dense ? .title3 : .title2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Node fully synced")
+                    .font(.callout.bold())
+                Text("Validated up to height \(state.height)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
         }
     }
 }

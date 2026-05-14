@@ -22,13 +22,15 @@ final class DefaultSyncActivityController: SyncActivityControlling {
             return
         }
         let attributes = SyncActivityAttributes(networkName: network.pathComponent)
+        let staleAt = Date().addingTimeInterval(SyncActivityAttributes.freshnessWindow)
         let state = SyncActivityAttributes.ContentState(
-            height: 0, headers: 0, peers: 0, progress: 0, inIBD: true
+            height: 0, headers: 0, peers: 0, progress: 0, inIBD: true,
+            staleAt: staleAt
         )
         do {
             activity = try Activity.request(
                 attributes: attributes,
-                content: ActivityContent(state: state, staleDate: nil)
+                content: ActivityContent(state: state, staleDate: staleAt)
             )
             Log.node.info("[Activity] started")
         } catch {
@@ -38,14 +40,16 @@ final class DefaultSyncActivityController: SyncActivityControlling {
 
     func update(_ status: SyncStatus) async {
         guard let activity else { return }
+        let staleAt = Date().addingTimeInterval(SyncActivityAttributes.freshnessWindow)
         let state = SyncActivityAttributes.ContentState(
             height: status.height,
             headers: status.headers,
             peers: status.peers,
             progress: status.progress,
-            inIBD: status.inIBD
+            inIBD: status.inIBD,
+            staleAt: staleAt
         )
-        await activity.update(ActivityContent(state: state, staleDate: nil))
+        await activity.update(ActivityContent(state: state, staleDate: staleAt))
     }
 
     func end() async {

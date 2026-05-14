@@ -29,7 +29,7 @@ final class DefaultHomeViewModel: HomeViewModel {
     var ffiVersion: String { service.ffiVersion }
     var stateLabel: String {
         if !isRunning { return "stopped" }
-        return status.inIBD ? "syncing (IBD)" : "synced"
+        return status.inIBD ? "syncing" : "synced"
     }
 
     @ObservationIgnored
