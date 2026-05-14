@@ -6,7 +6,12 @@ enum HomeFactory {
     @MainActor
     static func make() -> some View {
         let service = DefaultFlorestaNodeService()
-        let viewModel = DefaultHomeViewModel(service: service, config: FlorestaConfig())
+        let liveActivity = DefaultSyncActivityController()
+        let viewModel = DefaultHomeViewModel(
+            service: service,
+            liveActivity: liveActivity,
+            config: FlorestaConfig()
+        )
         return HomeView(viewModel: viewModel)
     }
 }

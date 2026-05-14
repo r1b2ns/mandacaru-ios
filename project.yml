@@ -30,6 +30,7 @@ targets:
     dependencies:
       - package: Floresta
         product: Floresta
+      - target: MandacaruiOSWidget
     info:
       path: MandacaruiOS/Info.plist
       properties:
@@ -43,6 +44,7 @@ targets:
           - processing
         BGTaskSchedulerPermittedIdentifiers:
           - zeroSixteen.br.com.MandacaruiOS.sync
+        NSSupportsLiveActivities: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -70,3 +72,26 @@ targets:
         SWIFT_APPROACHABLE_CONCURRENCY: YES
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+
+  MandacaruiOSWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MandacaruiOSWidget
+      - path: MandacaruiOS/Shared
+    info:
+      path: MandacaruiOSWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: zeroSixteen.br.com.MandacaruiOS.widget
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0"
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+        SKIP_INSTALL: YES

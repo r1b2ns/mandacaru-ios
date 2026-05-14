@@ -35,10 +35,17 @@ final class DefaultHomeViewModel: HomeViewModel {
     @ObservationIgnored
     private let service: FlorestaNodeServicing
     @ObservationIgnored
+    private let liveActivity: SyncActivityControlling
+    @ObservationIgnored
     private var streamTask: Task<Void, Never>?
 
-    init(service: FlorestaNodeServicing, config: FlorestaConfig = FlorestaConfig()) {
+    init(
+        service: FlorestaNodeServicing,
+        liveActivity: SyncActivityControlling,
+        config: FlorestaConfig = FlorestaConfig()
+    ) {
         self.service = service
+        self.liveActivity = liveActivity
         self.config = config
     }
 
@@ -56,6 +63,7 @@ final class DefaultHomeViewModel: HomeViewModel {
             Log.node.info("[Node] Node iniciado, ffi=\(self.ffiVersion, privacy: .public)")
             Log.floresta.info("[Sync] Iniciando sincronização")
 
+            liveActivity.start(network: network)
             startStatusStream()
         } catch {
             Log.node.error("[Node] Falha ao iniciar: \(String(describing: error), privacy: .public)")
@@ -69,6 +77,7 @@ final class DefaultHomeViewModel: HomeViewModel {
         streamTask?.cancel()
         streamTask = nil
         await service.stop()
+        await liveActivity.end()
         isRunning = false
         Log.node.info("[Node] Node parado")
     }
@@ -79,11 +88,15 @@ final class DefaultHomeViewModel: HomeViewModel {
             guard let stream = await self.service.statusStream(every: .seconds(1)) else { return }
             var lastLoggedPercent: Int = -1
             var lastInIBD = true
+            var lastActivityUpdate: ContinuousClock.Instant = .now
+            let activityThrottle: Duration = .seconds(2)
             for await snapshot in stream {
                 self.status = snapshot
                 if snapshot.inIBD != lastInIBD {
                     Log.floresta.info("[Sync] IBD: \(lastInIBD) -> \(snapshot.inIBD)")
                     lastInIBD = snapshot.inIBD
+                    await self.liveActivity.update(snapshot)
+                    lastActivityUpdate = .now
                 }
                 let percent = Int(snapshot.progress * 100)
                 if percent != lastLoggedPercent {
@@ -91,6 +104,13 @@ final class DefaultHomeViewModel: HomeViewModel {
                         "[Sync] progresso de sincronização \(percent)% (height=\(snapshot.height) headers=\(snapshot.headers))"
                     )
                     lastLoggedPercent = percent
+                }
+                // Refresh the Live Activity on a fixed cadence so peers / height /
+                // headers stay current even when `progress` is stuck at 0% (which
+                // happens during the header-download phase before any block lands).
+                if ContinuousClock.now - lastActivityUpdate >= activityThrottle {
+                    await self.liveActivity.update(snapshot)
+                    lastActivityUpdate = .now
                 }
             }
             Log.floresta.debug("[Sync] Stream encerrado")
