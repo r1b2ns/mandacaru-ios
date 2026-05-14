@@ -89,7 +89,7 @@ public actor FlorestaNode {
         AsyncStream { continuation in
             let task = Task {
                 while !Task.isCancelled {
-                    let snapshot = await self.status()
+                    let snapshot = self.status()
                     continuation.yield(snapshot)
                     try? await Task.sleep(for: interval)
                 }

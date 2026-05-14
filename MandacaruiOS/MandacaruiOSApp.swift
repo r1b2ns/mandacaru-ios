@@ -11,7 +11,7 @@ import SwiftUI
 struct MandacaruiOSApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeFactory.make()
         }
     }
 }
