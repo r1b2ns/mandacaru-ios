@@ -37,8 +37,7 @@ struct HomeView<ViewModel: HomeViewModel>: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "leaf.fill").foregroundStyle(.green)
-            Text("Mandacaru").font(.title2.bold())
+            Text("Node").font(.title2.bold())
         }
     }
 
