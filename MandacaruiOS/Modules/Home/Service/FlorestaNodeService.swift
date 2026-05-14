@@ -4,7 +4,7 @@ import Floresta
 @MainActor
 protocol FlorestaNodeServicing: AnyObject {
     var ffiVersion: String { get }
-    func start(dataDir: URL, network: FlorestaNetwork) async throws
+    func start(dataDir: URL, network: FlorestaNetwork, config: FlorestaConfig) async throws
     func stop() async
     func statusStream(every interval: Duration) async -> AsyncStream<SyncStatus>?
 }
@@ -16,8 +16,8 @@ final class DefaultFlorestaNodeService: FlorestaNodeServicing {
 
     private var node: FlorestaNode?
 
-    func start(dataDir: URL, network: FlorestaNetwork) async throws {
-        let node = try FlorestaNode(dataDir: dataDir, network: network)
+    func start(dataDir: URL, network: FlorestaNetwork, config: FlorestaConfig) async throws {
+        let node = try FlorestaNode(dataDir: dataDir, network: network, config: config)
         self.node = node
         try await node.start()
     }

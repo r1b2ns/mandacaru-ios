@@ -16,6 +16,40 @@
 
 typedef struct FlorestaNode FlorestaNode;
 
+/**
+ * Runtime tuning knobs forwarded to `UtreexoNodeConfig`. Pass NULL to
+ * `floresta_node_new` to use the mobile-friendly defaults below.
+ */
+typedef struct FlorestaConfig {
+  /**
+   * Enable assumeutreexo with the network's hardcoded snapshot — fast sync
+   * at the cost of trusting the snapshot baked into the fork.
+   */
+  bool assume_utreexo;
+  /**
+   * When assumeutreexo is on, also download and verify historical blocks in
+   * the background to upgrade from "trusted" to "fully validated".
+   */
+  bool backfill;
+  /**
+   * Use PoW fraud proofs to skip most of the chain validation. Off by
+   * default — exclusive with `assume_utreexo` in practice.
+   */
+  bool pow_fraud_proofs;
+  /**
+   * Skip DNS seeds. Useful for tests; in production we want them on.
+   */
+  bool disable_dns_seeds;
+  /**
+   * Allow falling back to P2P v1 if the v2 handshake fails.
+   */
+  bool allow_v1_fallback;
+  /**
+   * Peer misbehaviour threshold before disconnecting. Floresta default is 100.
+   */
+  uint32_t max_banscore;
+} FlorestaConfig;
+
 typedef struct FlorestaSyncStatus {
   uint32_t height;
   uint32_t headers;
@@ -28,7 +62,9 @@ char *floresta_ffi_version(void);
 
 void floresta_ffi_string_free(char *ptr);
 
-struct FlorestaNode *floresta_node_new(const char *data_dir, uint32_t network);
+struct FlorestaNode *floresta_node_new(const char *data_dir,
+                                       uint32_t network,
+                                       const struct FlorestaConfig *config);
 
 bool floresta_node_start(struct FlorestaNode *node);
 

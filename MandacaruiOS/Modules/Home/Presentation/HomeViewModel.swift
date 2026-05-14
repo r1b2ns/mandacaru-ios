@@ -25,6 +25,7 @@ final class DefaultHomeViewModel: HomeViewModel {
     private(set) var errorMessage: String?
 
     let network: FlorestaNetwork = .signet
+    let config: FlorestaConfig
     var ffiVersion: String { service.ffiVersion }
     var stateLabel: String {
         if !isRunning { return "stopped" }
@@ -36,8 +37,9 @@ final class DefaultHomeViewModel: HomeViewModel {
     @ObservationIgnored
     private var streamTask: Task<Void, Never>?
 
-    init(service: FlorestaNodeServicing) {
+    init(service: FlorestaNodeServicing, config: FlorestaConfig = FlorestaConfig()) {
         self.service = service
+        self.config = config
     }
 
     func start() async {
@@ -49,7 +51,7 @@ final class DefaultHomeViewModel: HomeViewModel {
                 .appending(path: network.pathComponent)
             Log.node.debug("[Node] Data dir: \(dataDir.path, privacy: .public)")
 
-            try await service.start(dataDir: dataDir, network: network)
+            try await service.start(dataDir: dataDir, network: network, config: config)
             isRunning = true
             Log.node.info("[Node] Node iniciado, ffi=\(self.ffiVersion, privacy: .public)")
             Log.floresta.info("[Sync] Iniciando sincronização")
