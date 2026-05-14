@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["floresta-ffi"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.81"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

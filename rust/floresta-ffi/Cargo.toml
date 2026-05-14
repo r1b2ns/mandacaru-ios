@@ -1,0 +1,28 @@
+[package]
+name = "floresta-ffi"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "floresta_ffi"
+crate-type = ["staticlib"]
+
+[dependencies]
+# Pin to the Mandacaru fork — same revision the production Android app is on.
+# The upstream getfloresta/Floresta has a parser bug on master and on the
+# 0.9.1 tag that causes `Transport(SerdeV1/V2(OversizedVarInt))` once peers
+# start exchanging real P2P traffic (handshake succeeds but the conn dies
+# moments later). The fork avoids it.
+floresta = { git = "https://github.com/jvsena42/Floresta-mandacaru.git", rev = "e1270905a5cfc81135e759ec94fd19e7bb15361c", default-features = false, features = ["flat-chainstore"] }
+floresta-chain = { git = "https://github.com/jvsena42/Floresta-mandacaru.git", rev = "e1270905a5cfc81135e759ec94fd19e7bb15361c", default-features = false, features = ["flat-chainstore"] }
+floresta-wire = { git = "https://github.com/jvsena42/Floresta-mandacaru.git", rev = "e1270905a5cfc81135e759ec94fd19e7bb15361c", default-features = false }
+floresta-mempool = { git = "https://github.com/jvsena42/Floresta-mandacaru.git", rev = "e1270905a5cfc81135e759ec94fd19e7bb15361c", default-features = false }
+tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "sync", "time"] }
+# Pin exact patch: 0.32.7 is what the Mandacaru Android app ships in
+# production. 0.32.8/0.32.9 break the P2P parser on signet — peers handshake
+# fine but every subsequent decode trips `OversizedVarInt` and the conn dies.
+bitcoin = { version = "=0.32.7", default-features = false }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }

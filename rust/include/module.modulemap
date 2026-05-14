@@ -1,0 +1,4 @@
+module FlorestaFFI {
+    header "floresta_ffi.h"
+    export *
+}
