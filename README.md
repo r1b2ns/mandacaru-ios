@@ -4,6 +4,10 @@ A lightweight Bitcoin validator node for iOS, powered by [Utreexo](https://dci.m
 
 > **Status:** early MVP. Currently focused on getting Signet IBD running.
 
+## Try it
+
+A TestFlight build is available — join the beta at <https://testflight.apple.com/join/7jFeDPDC>.
+
 ## What it does
 
 Runs a real validating Bitcoin node directly on the device, without the multi-gigabyte storage of a full node. Utreexo replaces the UTXO set with a few KB of accumulator roots; each new transaction comes with an inclusion proof that the node verifies. The result is a self-sovereign node that fits in your pocket.
